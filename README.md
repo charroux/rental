@@ -6,7 +6,7 @@ Put request : curl -X PUT -H "Content-Type: application/json" -d '{"begin" : "12
 
 ### Docker
 
-Create a Dockerfile in the code folder: 
+Create a Dockerfile in the code folder: https://github.com/charroux/masterinfo/blob/main/rent/Dockerfile
 
 Build a Docker image:
 ```
