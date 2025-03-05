@@ -91,3 +91,47 @@ git branch -D newcarservice
 ```
 git push origin --delete newcarservice
 ```
+
+### Installer Minikube
+
+https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Fx86-64%2Fstable%2Fbinary+download
+
+### Démarrer Minikube
+```
+minikube start --driver=docker      
+```
+
+Combien de noeuds dans le cluster?
+```
+kubectl get nodes      
+```
+
+Dashboard pour inspecter le cluster :
+```
+minikube dashboard
+```
+
+Déployer votre image Docker :
+```
+kubectl create deployment rentalservice --image=charroux/rentalservice:1      
+```
+Attention d'utiliser votre image.
+
+Vérifier que le procesus fonctionne bien :
+```
+kubectl get pods      
+```
+
+Ajouter un service :
+```
+kubectl expose deployment rentalservice --type=LoadBalancer              
+```    
+Récupérer l'adresse du service :
+```
+minikube service rentalservice --url                      
+```    
+Tester dans votre navigateur :
+
+http://127.0.0.1:50784/cars
+
+En adaptant l'URL.
