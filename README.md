@@ -124,7 +124,7 @@ kubectl get pods
 
 Ajouter un service :
 ```
-kubectl expose deployment rentalservice --type=NodePort --port=8080              
+kubectl expose deployment rentalservice --type=LoadBalancer --port=8080              
 ```    
 Récupérer l'adresse du service :
 ```
