@@ -135,3 +135,19 @@ Tester dans votre navigateur :
 http://127.0.0.1:50784/cars
 
 En adaptant l'URL.
+
+### Scalling
+
+Récupérer l'adresse du service :
+```
+kubectl scale --replicas=2 deployment/rentalservice
+```
+
+Vérifier que vous avez bien 2 pods.
+
+### Détruire un pod et constater qu'il redémarre automatiquement
+
+Récupérer l'adresse du service :
+```
+kubectl delete pod (numéro du pod)
+```
