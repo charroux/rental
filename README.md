@@ -157,7 +157,7 @@ kubectl delete pod (numéro du pod)
 kubectl apply -f deployment.yml           
 ```
 
-Le fichier yaml : https://github.com/charroux/st2scl/blob/main/deployment.yml
+Le fichier yaml : https://github.com/charroux/masterinfo/blob/main/deployment.yml
 
 ## Mettre en place une gateway
 
@@ -195,7 +195,7 @@ eval $(minikube docker-env)
 
 ### Kubernetes Gateway
 
-Check the configuration at 53: https://github.com/charroux/st2scl/blob/main/deployment.yml
+Check the configuration at 53: https://github.com/charroux/masterinfo/blob/main/deployment.yml
 
 Check also where the Kubernetes service is registered in the gateway at line 72.
 
