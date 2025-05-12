@@ -12,7 +12,16 @@ Move to the new branch:
 ```
 git checkout newcarservice
 ```
-Update the code and commit changes:
+Update the code : 
+Edit the file: https://github.com/charroux/rental/blob/main/rent/src/main/java/com/example/rent/web/RentalService.java
+
+And add a new Car at line 23 :
+```
+car = new Car("Renault", 200);
+cars.add(car);
+```
+
+Then commit changes:
 ```
 git commit -a -m "newcarservice"
 ```
