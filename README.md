@@ -4,6 +4,10 @@
 
 The script is there: https://github.com/charroux/masterinfo/blob/main/.github/workflows/actions.yml
 
+Get the project:
+```
+git clone "Your project"
+```
 Create a new branch:
 ```
 git branch newcarservice
