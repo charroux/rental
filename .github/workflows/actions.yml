@@ -16,6 +16,7 @@ jobs:
         working-directory: rent
         run: |
           export SHELL=/bin/bash
+          chmod u+x ./gradlew
           ./gradlew build
       - name: Docker images
         working-directory: rent
