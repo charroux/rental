@@ -104,7 +104,7 @@ Put request : curl -X PUT -H "Content-Type: application/json" -d '{"begin" : "12
 
 ### Docker
 
-Build the Java file:
+Move to the rent folder and build the Java file:
 ```
 ./gradlew build      
 ```
