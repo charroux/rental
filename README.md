@@ -1,4 +1,37 @@
-# masterinfo
+# DevOps
+
+### Update your project with the Java code and the CI script
+
+Get my project:
+```
+git clone https://github.com/charroux/rental
+```
+
+Get your project
+```
+git clone "You project address"
+```
+
+Copy from my project to your project:
+
+- the Java code (rent folder)
+
+- the script (into .github/workflows)
+
+Update your project:
+```
+cd "your repository"
+```
+```
+git add .
+```
+```
+git commit -a -m "code and script"
+```
+```
+git push
+```
+You must have a token in order to push (uses has the password) => create a classic token.
 
 ### Launch a workflow when the code is updated
 
