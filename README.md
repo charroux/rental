@@ -2,6 +2,12 @@
 
 ### Update your project with the Java code and the CI script
 
+Check if git is already present on your machine (in a terminal):
+```
+git
+```
+If not installed, get git from: https://git-scm.com/downloads
+
 Get my project:
 ```
 git clone https://github.com/charroux/rental
