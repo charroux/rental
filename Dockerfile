@@ -1,11 +1,11 @@
 # Build stage
-FROM openjdk:21-jdk-slim as builder
+FROM gradle:8.10.2-jdk17 AS builder
 WORKDIR /app
 COPY . .
-RUN ./gradlew clean build -x test
+RUN gradle clean build -x test
 
 # Runtime stage
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
 
