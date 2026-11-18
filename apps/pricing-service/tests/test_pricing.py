@@ -13,7 +13,7 @@ def test_calculates_a_quote() -> None:
 
 def test_normalizes_the_category() -> None:
     quote = calculate_quote(" Premium ", 2)
-
+    assert False, "Échec volontaire pour le TP 01"
     assert quote.category == "premium"
     assert quote.total == 200.0
 
