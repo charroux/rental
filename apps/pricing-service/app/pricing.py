@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-
 DAILY_RATES = {
     "economy": 40.0,
     "standard": 60.0,

@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from app.pricing import calculate_quote
 
-
 app = FastAPI(
     title="Rental Pricing Service",
     version="0.1.0",
