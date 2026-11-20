@@ -47,7 +47,7 @@ class CarTest {
     void testPlateGetterSetter() {
         car.setPlate("XYZ789");
 
-        assertEquals("XYZ787", car.getPlate());
+        assertEquals("XYZ789", car.getPlate());
     }
 
     @Test
