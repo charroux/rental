@@ -53,6 +53,7 @@ jobs:
         with:
           name: test-results
           path: apps/car-rental-service/build/test-results/
+          retention-days: 7
 
   # Code quality checks
   code-quality:
@@ -76,6 +77,15 @@ jobs:
       - name: Gradle build
         working-directory: apps/car-rental-service
         run: ./gradlew build -x test
+
+      - name: Upload Checkstyle reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkstyle-reports
+          path: apps/car-rental-service/build/reports/checkstyle/
+          retention-days: 7
+          if-no-files-found: warn
       
       - name: Check for secrets
         uses: gitleaks/gitleaks-action@v2
