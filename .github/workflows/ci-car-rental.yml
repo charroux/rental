@@ -2,7 +2,7 @@ name: CI/CD - car-rental-service
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop,tp/01-ci]
     paths:
       - 'apps/car-rental-service/**'
       - '.github/workflows/ci-car-rental.yml'

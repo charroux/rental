@@ -2,7 +2,7 @@ name: CI/CD - pricing-service
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop,tp/01-ci]
     paths:
       - 'apps/pricing-service/**'
       - '.github/workflows/ci-pricing.yml'
