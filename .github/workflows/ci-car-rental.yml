@@ -8,9 +8,13 @@ on:
       - '.github/workflows/ci-car-rental.yml'
   pull_request:
     branches: [ main, develop ]
-    paths:
-      - 'apps/car-rental-service/**'
-      - '.github/workflows/ci-car-rental.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REGISTRY: ghcr.io
@@ -23,6 +27,7 @@ jobs:
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       checks: write
@@ -53,6 +58,7 @@ jobs:
   code-quality:
     name: Code Quality & Security Scans
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     
     steps:
       - name: Checkout code
