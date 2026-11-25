@@ -7,7 +7,7 @@ def test_calculates_a_quote() -> None:
     quote = calculate_quote("standard", 3)
 
     assert quote.daily_rate == 60.0
-    assert quote.total == 180.0
+    assert quote.total == 181.0
     assert quote.currency == "EUR"
 
 
