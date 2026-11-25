@@ -1,0 +1,48 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: docker
+    directory: /apps/car-rental-service
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:15"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    ignore:
+      # Java and Gradle major versions define the course runtime baseline.
+      # Upgrade them through a dedicated migration checkpoint instead.
+      - dependency-name: gradle
+        update-types:
+          - version-update:semver-major
+      - dependency-name: eclipse-temurin
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: docker
+    directory: /apps/pricing-service
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:15"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    ignore:
+      # Python major versions define the course runtime baseline.
+      - dependency-name: python
+        update-types:
+          - version-update:semver-major

@@ -1,0 +1,193 @@
+---
+title: "TP 02 — produire et vérifier les preuves d'une image"
+subtitle: "Durée indicative : 4 heures"
+toc: true
+toc-depth: 3
+number-sections: true
+---
+
+## Situation
+
+La pipeline construit deux images et les publie dans GHCR. L'équipe sait que les
+tests ont réussi, mais le tag `latest` ne permet pas d'établir le contenu exact
+qui sera déployé ni l'identité de son producteur.
+
+Vous partez du tag `checkpoint/01-ci`. Le tag
+`checkpoint/02-supply-chain` sert de corrigé après le TP.
+
+## Parcours Git du TP
+
+La branche `main` contient l'état le plus avancé préparé par l'enseignant. Ne
+travaillez pas directement depuis cette branche et ne continuez pas depuis
+votre branche personnelle du TP 01.
+
+Pour ce TP :
+
+| Rôle | Référence Git |
+|---|---|
+| Point de départ | `checkpoint/01-ci` |
+| Branche de travail | `tp/02-supply-chain` |
+| Résultat de référence | `checkpoint/02-supply-chain` |
+
+Conservez votre branche du TP 01 comme archive. Le tag `checkpoint/01-ci`
+fournit à toute la promotion le même état validé. Après ce TP, votre branche
+`tp/02-supply-chain` restera également disponible, tandis que le TP 03 partira
+du corrigé officiel `checkpoint/02-supply-chain`.
+
+## Livrables
+
+Votre pull request doit fournir :
+
+- des actions GitHub et images de base référencées de façon immuable ;
+- une revue automatique des dépendances ;
+- un SBOM SPDX JSON par image ;
+- une signature Cosign sans clé ;
+- des attestations de provenance et de SBOM ;
+- une vérification distante des preuves ;
+- un contrôle local des références.
+
+## 0. Préparer la branche — 15 min
+
+```bash
+git fetch --tags
+git switch --create tp/02-supply-chain checkpoint/01-ci
+python scripts/course.py verify
+```
+
+Relevez toutes les lignes `uses:` et `FROM`. Classez chaque référence comme
+mutable ou immuable.
+
+## 1. Modéliser les risques — 25 min
+
+Pour chaque élément, décrivez un scénario de substitution et son impact :
+
+| Élément | Exemple de substitution |
+|---|---|
+| Action GitHub | déplacement d'un tag majeur |
+| Image de base | remplacement du manifeste derrière un tag |
+| Image produite | déplacement de `latest` après le scan |
+
+Identifiez ensuite la preuve ou le contrôle qui réduit chaque risque.
+
+## 2. Épingler les références — 45 min
+
+Remplacez chaque version d'action par un commit complet de 40 caractères.
+Conservez la version lisible dans un commentaire.
+
+```yaml
+uses: actions/checkout@<commit-complet> # v7.0.1
+```
+
+Ajoutez un digest aux images de base sans retirer le tag :
+
+```dockerfile
+FROM python:3.12-slim@sha256:<digest>
+```
+
+Ajoutez Dependabot pour les écosystèmes `github-actions` et `docker`. Les mises
+à jour doivent arriver dans des pull requests ordinaires.
+
+## 3. Contrôler la politique en local — 25 min
+
+Ajoutez `supply-chain-policy` dans `scripts/course.py`. La commande parcourt les
+workflows et les Dockerfiles, puis échoue si elle rencontre :
+
+- une action distante sans SHA complet ;
+- une instruction `FROM` sans digest SHA-256.
+
+```bash
+python scripts/course.py supply-chain-policy
+```
+
+Réintroduisez temporairement `@v7` pour observer l'échec, puis restaurez le SHA.
+
+## 4. Revoir les dépendances d'une PR — 25 min
+
+Dans les paramètres de sécurité du dépôt, activez le graphe de dépendances et
+les alertes de vulnérabilités. Ajoutez ensuite un workflow `Dependency review`
+limité aux pull requests. Configurez le seuil d'échec sur `high`.
+
+Expliquez pourquoi ce contrôle examine le changement de dépendances tandis que
+Trivy examine le contenu final de l'image.
+
+## 5. Produire un SBOM — 35 min
+
+Après publication d'une image, exécutez Syft via `anchore/sbom-action` sur la
+référence `image@digest`.
+
+Contraintes :
+
+- format `spdx-json` ;
+- fichier distinct pour Java et Python ;
+- artefact conservé sept jours ;
+- le digest provient directement de la sortie Buildx.
+
+Téléchargez un SBOM et retrouvez un paquet système puis une bibliothèque
+applicative.
+
+## 6. Signer et attester — 50 min
+
+Créez un job exécuté uniquement après publication sur `main`. Accordez-lui les
+permissions minimales nécessaires.
+
+1. Installez Cosign.
+2. Signez `image@digest` avec l'identité OIDC du workflow.
+3. Attestez la provenance avec `actions/attest`.
+4. Attestez le SBOM avec la même action et son entrée `sbom-path`.
+
+Ne créez pas de clé privée persistante et n'ajoutez aucun secret de signature.
+
+## 7. Vérifier avant de scanner — 30 min
+
+Le workflow doit vérifier sa propre sortie :
+
+```bash
+cosign verify \
+  --certificate-identity "<identité-du-workflow>" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "<image@digest>"
+
+gh attestation verify "oci://<image@digest>" --repo "<owner/repo>"
+```
+
+Exécutez ensuite Trivy sur ce même digest. Une utilisation de `latest` à cette
+étape ne respecte pas le contrat du TP.
+
+## 8. Lire les preuves — 25 min
+
+À partir d'une exécution réussie, fournissez dans votre compte rendu :
+
+- le digest vérifié ;
+- l'identité du certificat Cosign ;
+- le dépôt et le commit présents dans la provenance ;
+- deux composants trouvés dans le SBOM ;
+- le lien vers le rapport Trivy.
+
+## Critères d'acceptation
+
+| Critère | Points |
+|---|---:|
+| Actions et images de base immuables | 4 |
+| Politique locale et Dependabot | 3 |
+| SBOM SPDX associé au bon digest | 3 |
+| Signature sans clé vérifiable | 3 |
+| Provenance et attestation SBOM | 3 |
+| Permissions minimales et vérification finale | 2 |
+| Analyse argumentée des preuves | 2 |
+
+La validation locale est :
+
+```bash
+python scripts/course.py verify
+```
+
+La validation distante exige les contrôles de PR verts, puis les jobs de chaîne
+logicielle réussis sur `main`.
+
+## Pour aller plus loin
+
+1. Comparez un SBOM généré depuis le système de fichiers source avec celui de
+   l'image finale.
+2. Limitez `gh attestation verify` à un type précis de prédicat.
+3. Proposez une règle d'admission Kubernetes qui refuse une image non signée.
+4. Étudiez le verrouillage par hash des dépendances Python et Gradle.

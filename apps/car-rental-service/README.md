@@ -23,6 +23,14 @@ Sous Windows :
 .\gradlew.bat clean test
 ```
 
+## Qualité
+
+```bash
+./gradlew checkstyleMain checkstyleTest
+```
+
+Les rapports HTML sont écrits dans `build/reports/checkstyle/`.
+
 ## Lancement
 
 ```bash

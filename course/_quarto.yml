@@ -1,0 +1,29 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "Rental DevOps"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Accueil
+      - href: slides/01-ci.qmd
+        text: Cours 01
+      - href: labs/tp01.qmd
+        text: TP 01
+      - href: slides/02-supply-chain.qmd
+        text: Cours 02
+      - href: labs/tp02.qmd
+        text: TP 02
+
+lang: fr
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-copy: true
+
+execute:
+  freeze: auto

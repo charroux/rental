@@ -1,0 +1,24 @@
+---
+title: "Rental DevOps — supports"
+---
+
+Ce site accompagne une formation DevOps d'environ trente heures destinée à des
+étudiants de master. Chaque module part d'un tag Git, fait évoluer le système et
+se termine par un checkpoint vérifiable.
+
+## Module 01 — intégration continue
+
+- [Présentation : concevoir une boucle de retour utile](slides/01-ci.qmd)
+- [TP 01 : rendre la CI observable et bloquante](labs/tp01.qmd)
+
+Point de départ : `checkpoint/00-starter`  
+Résultat attendu : `checkpoint/01-ci`
+
+## Module 02 — chaîne de production logicielle
+
+- [Présentation : établir l'identité et la provenance d'une image](slides/02-supply-chain.qmd)
+- [TP 02 : produire et vérifier les preuves](labs/tp02.qmd)
+
+Point de départ : `checkpoint/01-ci`
+
+Résultat attendu : `checkpoint/02-supply-chain`

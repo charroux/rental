@@ -1,0 +1,42 @@
+/*-- scss:defaults --*/
+$body-bg: #f7f8fa;
+$body-color: #172033;
+$link-color: #087f8c;
+$selection-bg: #f4b942;
+$presentation-heading-color: #15324b;
+$presentation-heading-font: "Aptos Display", "Segoe UI", sans-serif;
+$font-family-sans-serif: "Aptos", "Segoe UI", sans-serif;
+$code-block-bg: #eef2f5;
+$code-color: #172033;
+
+/*-- scss:rules --*/
+.reveal .slides {
+  text-align: left;
+}
+
+.reveal h1,
+.reveal h2 {
+  letter-spacing: -0.02em;
+}
+
+.reveal h1 {
+  border-left: 0.18em solid #f4b942;
+  padding-left: 0.38em;
+}
+
+.reveal .accent {
+  color: #087f8c;
+  font-weight: 700;
+}
+
+.reveal .small {
+  font-size: 0.68em;
+}
+
+.reveal .footer {
+  color: #52606d;
+}
+
+.reveal pre code {
+  max-height: 440px;
+}

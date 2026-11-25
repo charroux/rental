@@ -12,6 +12,13 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
+## Qualité
+
+```bash
+python -m ruff check app tests
+python -m ruff format --check app tests
+```
+
 ## Lancement
 
 ```bash

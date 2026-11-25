@@ -1,9 +1,9 @@
-# Rental DevOps — checkpoint 00
+# Rental DevOps — checkpoint 02
 
 Ce monorepo est le socle d'une formation DevOps pratique destinée à des
-étudiants de master. Le checkpoint 00 fournit deux services autonomes,
-testables et conteneurisés, mais laisse volontairement à construire la
-communication distribuée, la persistance et le déploiement Kubernetes.
+étudiants de master. Le checkpoint 02 sécurise la chaîne de production des
+images : références immuables, nomenclatures logicielles, signatures sans clé
+et attestations de provenance.
 
 ## Architecture actuelle
 
@@ -54,17 +54,34 @@ python -m pip install -r requirements-dev.txt
 cd ../..
 ```
 
-## Tests
+## Vérification locale
 
 Depuis la racine :
 
 ```bash
-python scripts/course.py test
+python scripts/course.py verify
 ```
 
-Cette commande exécute les tests Gradle puis les tests Pytest.
-Pour diagnostiquer séparément un service, utiliser `test-java` ou
-`test-python` à la place de `test`.
+Cette commande exécute les tests Gradle et Pytest, Checkstyle, Ruff, puis la
+politique locale de chaîne logicielle.
+Pour diagnostiquer une étape séparément, utiliser `test`, `lint`,
+`test-java`, `test-python`, `lint-java`, `lint-python` ou
+`supply-chain-policy`.
+
+## Intégration continue
+
+Chaque pull request vers `main` déclenche huit contrôles lisibles :
+
+- tests, qualité et construction de l'image pour le service Java ;
+- tests, qualité et construction de l'image pour le service Python ;
+- détection de secrets sur l'historique Git.
+- revue des dépendances ajoutées ou mises à jour.
+
+Les rapports de tests et de qualité sont conservés sept jours comme artefacts
+GitHub Actions. Sur `main`, chaque image est publiée par digest dans GHCR, signée
+avec Cosign, accompagnée d'un SBOM SPDX et de deux attestations GitHub, puis
+analysée avec Trivy. Les workflows vérifient leurs propres preuves avant de se
+terminer.
 
 ## Exécution avec Docker Compose
 
@@ -94,12 +111,12 @@ python scripts/course.py compose-down
 ```text
 apps/                 Services applicatifs
 archive/              Notes historiques conservées
-course/               Futurs supports Quarto
+course/               Présentation Quarto et travaux pratiques
 docs/                 État de référence et checkpoints
 infra/                Future infrastructure de test
 scripts/              Commandes portables du cours
 tests/                Futures suites de tests système
-.github/workflows/     CI minimale à améliorer pendant la formation
+.github/workflows/     Pipelines CI par service et sécurité du dépôt
 ```
 
 ## Limites intentionnelles du checkpoint
@@ -109,10 +126,16 @@ tests/                Futures suites de tests système
 - aucune base PostgreSQL ni migration ;
 - aucun test de contrat ou test E2E ;
 - aucun manifeste Kubernetes ou cluster Kind ;
-- workflows CI encore redondants et non durcis.
+- dépendances transitives applicatives non verrouillées par hash ;
+- aucune vérification de signature à l'admission Kubernetes.
 
-Voir [la fiche du checkpoint](docs/CHECKPOINT-00.md) pour les objectifs et les
-critères de validation.
+Voir [la fiche du checkpoint](docs/CHECKPOINT-02.md), le
+[support de cours](course/slides/02-supply-chain.qmd) et le
+[TP 02](course/labs/tp02.qmd).
+
+Le point de départ étudiant reste disponible sous le tag
+`checkpoint/00-starter`. Les deux premières étapes validées sont publiées sous
+`checkpoint/01-ci` et `checkpoint/02-supply-chain`.
 
 L'état historique antérieur à la refonte reste disponible sous le tag
 `legacy/v1-microservices`.

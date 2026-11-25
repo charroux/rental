@@ -1,0 +1,201 @@
+---
+title: "Checkpoint 02"
+subtitle: "Identité, contenu et provenance des images"
+author: "Rental DevOps — Master informatique"
+format:
+  revealjs:
+    theme: [default, ../theme.scss]
+    slide-number: c/t
+    transition: fade
+    background-transition: fade
+    width: 1280
+    height: 720
+    margin: 0.08
+    center: false
+    navigation-mode: linear
+    chalkboard: false
+    footer: "Rental DevOps · Supply chain"
+---
+
+## Objectifs du module
+
+À l'issue du TP, vous saurez :
+
+- distinguer un tag d'un digest ;
+- réduire le risque lié aux actions GitHub tierces ;
+- lire un SBOM SPDX ;
+- expliquer ce que prouvent une signature et une attestation ;
+- vérifier un livrable avant son déploiement.
+
+## Le problème de l'image verte
+
+La CI du checkpoint 01 produit `ghcr.io/.../service:latest`.
+
+Ce nom ne répond pas à trois questions :
+
+- quels octets seront réellement déployés ?
+- quel workflow les a produits ?
+- quelles bibliothèques contient l'image ?
+
+Une réussite passée ne suffit pas si la référence peut changer.
+
+## Tags et digests
+
+```text
+pricing-service:latest
+        |
+        | résolution à un instant donné
+        v
+pricing-service@sha256:8d3f...a91c
+```
+
+Le tag peut désigner un autre manifeste demain. Le digest identifie le contenu.
+
+Dans ce checkpoint, les contrôles portent sur `image@sha256:...`.
+
+## Références des actions
+
+::: {.small}
+```yaml
+# mutable
+uses: actions/checkout@v7
+
+# immuable et lisible grâce au commentaire
+uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+```
+:::
+
+Le commit empêche le déplacement silencieux de la référence. Dependabot propose
+les mises à jour sous forme de pull requests examinables.
+
+## Images de base
+
+```dockerfile
+FROM python:3.12-slim@sha256:5e2b...a4fa5b
+```
+
+Le tag communique l'intention. Le digest fixe le manifeste réellement utilisé.
+
+Une mise à jour devient un changement Git visible, testé et réversible.
+
+## Nomenclature logicielle
+
+Le SBOM décrit les composants découverts dans l'image.
+
+```text
+Document SPDX
+├── image et métadonnées
+├── paquets système
+├── bibliothèques applicatives
+├── versions et licences
+└── relations entre composants
+```
+
+Le SBOM soutient l'inventaire et l'analyse d'impact. Il ne prouve pas, seul, qui
+a construit l'image.
+
+## Trois preuves distinctes
+
+| Preuve | Question traitée |
+|---|---|
+| Signature Cosign | Quelle identité a signé ce digest ? |
+| Provenance | Quel workflow et quel commit ont produit ce digest ? |
+| Attestation SBOM | Quel inventaire le producteur associe à ce digest ? |
+
+Ces preuves partagent le même sujet : le digest de l'image.
+
+## Signature sans clé
+
+```{mermaid}
+flowchart LR
+  W["Workflow GitHub"] -->|"demande un jeton"| O["OIDC GitHub"]
+  O -->|"identité temporaire"| W
+  W -->|"signe image@digest"| R["Registre OCI"]
+```
+
+Cosign lie la signature à l'identité du workflow. Aucun secret de signature
+permanent ne doit être stocké dans le dépôt.
+
+## Provenance du build
+
+L'attestation contient notamment :
+
+- le sujet, donc le nom et le digest ;
+- le dépôt et le commit source ;
+- l'identité du workflow ;
+- le contexte de génération de la preuve.
+
+`gh attestation verify` contrôle la signature de l'attestation et son lien avec
+le dépôt attendu.
+
+## Une seule identité du livrable
+
+```{mermaid}
+flowchart LR
+  B["Buildx"] --> D["image@digest"]
+  D --> S["Signature"]
+  D --> P["Provenance"]
+  D --> M["SBOM"]
+  D --> V["Scan Trivy"]
+  S --> C["Vérification"]
+  P --> C
+  M --> C
+```
+
+Scanner `latest` après avoir signé un digest introduirait une course entre deux
+objets potentiellement différents.
+
+## Permissions du workflow
+
+Le job de construction reçoit `packages: write` pour publier l'image.
+
+Le job de preuves ajoute uniquement :
+
+- `id-token: write` pour l'identité OIDC ;
+- `attestations: write` pour GitHub Attestations ;
+- `security-events: write` pour le rapport SARIF.
+
+Les jobs de test conservent `contents: read`.
+
+## Vérification locale de la politique
+
+```bash
+python scripts/course.py supply-chain-policy
+```
+
+Le contrôle refuse :
+
+- une action sans SHA complet ;
+- une image de base sans digest SHA-256.
+
+La commande `verify` l'exécute avec les tests et les linters.
+
+## TP 02 — contrat de sortie
+
+À partir de `checkpoint/01-ci` :
+
+- remplacer les références mutables ;
+- automatiser leurs mises à jour ;
+- produire un SBOM par image ;
+- signer et attester le digest publié ;
+- vérifier les preuves, puis scanner ce même digest.
+
+Résultat de référence : `checkpoint/02-supply-chain`.
+
+## Limites du checkpoint
+
+Le dépôt ne vérifie pas encore les preuves à l'admission Kubernetes.
+
+Les dépendances transitives applicatives ne sont pas verrouillées par hash. Les
+images ne sont pas promues entre plusieurs environnements.
+
+Les prochains modules traiteront l'intégration des services, la persistance et
+les déploiements locaux.
+
+## Références
+
+- GitHub Docs, Artifact attestations
+- Sigstore Docs, keyless signing et vérification Cosign
+- SPDX Specification
+- SLSA, provenance model
+- OpenSSF Scorecard, pinning des dépendances

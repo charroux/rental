@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,10 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 CAR_SERVICE = ROOT / "apps" / "car-rental-service"
 PRICING_SERVICE = ROOT / "apps" / "pricing-service"
+WORKFLOWS = ROOT / ".github" / "workflows"
+
+ACTION_SHA = re.compile(r"^[0-9a-f]{40}$")
+IMAGE_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}(?:\s|$)")
 
 
 def run(command: list[str], *, cwd: Path = ROOT) -> None:
@@ -42,6 +47,62 @@ def test_python() -> None:
 def test() -> None:
     test_java()
     test_python()
+
+
+def lint_java() -> None:
+    run([*gradle_command(), "checkstyleMain", "checkstyleTest"], cwd=CAR_SERVICE)
+
+
+def lint_python() -> None:
+    run([sys.executable, "-m", "ruff", "check", "app", "tests"], cwd=PRICING_SERVICE)
+    run(
+        [sys.executable, "-m", "ruff", "format", "--check", "app", "tests"],
+        cwd=PRICING_SERVICE,
+    )
+
+
+def lint() -> None:
+    lint_java()
+    lint_python()
+
+
+def supply_chain_policy() -> None:
+    errors: list[str] = []
+    workflows = sorted([*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")])
+
+    for workflow in workflows:
+        for line_number, line in enumerate(
+            workflow.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            stripped = line.strip()
+            if not stripped.startswith("uses:"):
+                continue
+            reference = stripped.removeprefix("uses:").split("#", maxsplit=1)[0].strip()
+            if reference.startswith("./"):
+                continue
+            if "@" not in reference or not ACTION_SHA.fullmatch(reference.rsplit("@", 1)[1]):
+                errors.append(
+                    f"{workflow.relative_to(ROOT)}:{line_number}: action not pinned to a SHA"
+                )
+
+    for dockerfile in sorted((ROOT / "apps").glob("*/Dockerfile")):
+        for line_number, line in enumerate(
+            dockerfile.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            if line.strip().upper().startswith("FROM ") and not IMAGE_DIGEST.search(line):
+                errors.append(
+                    f"{dockerfile.relative_to(ROOT)}:{line_number}: base image not pinned to a digest"
+                )
+
+    if errors:
+        raise RuntimeError("Supply-chain policy failed:\n" + "\n".join(errors))
+    print("OK supply-chain policy")
+
+
+def verify() -> None:
+    test()
+    lint()
+    supply_chain_policy()
 
 
 def compose_up() -> None:
@@ -121,6 +182,11 @@ def main() -> int:
             "test",
             "test-java",
             "test-python",
+            "lint",
+            "lint-java",
+            "lint-python",
+            "supply-chain-policy",
+            "verify",
             "compose-up",
             "compose-down",
             "smoke",
@@ -133,6 +199,11 @@ def main() -> int:
         "test": test,
         "test-java": test_java,
         "test-python": test_python,
+        "lint": lint,
+        "lint-java": lint_java,
+        "lint-python": lint_python,
+        "supply-chain-policy": supply_chain_policy,
+        "verify": verify,
         "compose-up": compose_up,
         "compose-down": compose_down,
         "smoke": smoke,

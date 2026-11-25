@@ -1,0 +1,223 @@
+---
+title: "TP 01 — une CI observable et bloquante"
+subtitle: "Durée indicative : 4 heures"
+toc: true
+toc-depth: 3
+number-sections: true
+---
+
+## Situation
+
+Vous rejoignez l'équipe du service Rental. Deux applications sont testées et
+conteneurisées, mais la pipeline ne fournit pas encore une boucle de retour
+suffisante pour intégrer sereinement les changements.
+
+Votre mission consiste à rendre les contrôles explicites, reproductibles et
+exploitables. Vous partez du tag `checkpoint/00-starter`. Le tag
+`checkpoint/01-ci` sert uniquement de corrigé après le TP.
+
+## Parcours Git du TP
+
+La branche `main` contient l'état le plus avancé préparé par l'enseignant. Ne
+travaillez pas directement depuis cette branche.
+
+Pour ce TP :
+
+| Rôle | Référence Git |
+|---|---|
+| Point de départ | `checkpoint/00-starter` |
+| Branche de travail | `tp/01-ci` |
+| Résultat de référence | `checkpoint/01-ci` |
+
+Conservez votre branche `tp/01-ci` après le TP. Elle garde la trace de votre
+travail, mais le TP 02 repartira du corrigé officiel `checkpoint/01-ci`. Tous
+les étudiants commenceront ainsi le checkpoint suivant depuis le même état.
+
+## Objectifs et livrables
+
+À la fin du TP, votre branche contient :
+
+- deux workflows applicatifs séparant tests, qualité et image ;
+- un workflow de détection de secrets ;
+- Checkstyle et Ruff configurés dans le dépôt ;
+- des rapports téléchargeables après succès ou échec ;
+- une commande locale qui reproduit les portes qualité ;
+- une pull request courte expliquant vos choix.
+
+## 0. Préparer la branche — 15 min
+
+```bash
+git fetch --tags
+git switch --create tp/01-ci checkpoint/00-starter
+python scripts/course.py test
+```
+
+### Rôle de `course.py`
+
+`scripts/course.py` fournit des commandes portables pour le travail local. Il
+choisit automatiquement `gradlew.bat` sous Windows et `./gradlew` sur les
+autres systèmes, puis exécute les outils dans le répertoire du service concerné.
+
+Au début du TP, les commandes suivantes sont déjà disponibles :
+
+| Commande | Action |
+|---|---|
+| `prerequisites` | Vérifie la présence de Python, Java et Docker |
+| `test-java` | Exécute `gradlew clean test` dans le service Java |
+| `test-python` | Exécute Pytest avec l'interpréteur Python courant |
+| `test` | Lance les tests Java, puis les tests Python |
+| `compose-up` / `compose-down` | Construit, démarre ou arrête l'environnement Docker Compose |
+| `smoke` | Vérifie les endpoints des deux services et une réponse métier attendue |
+
+La commande `smoke` suppose que les services sont déjà démarrés. Elle attend
+leur disponibilité, vérifie `/health` et `/cars`, puis contrôle qu'une cotation
+standard de deux jours vaut 120 EUR.
+
+Pendant le TP, vous ajouterez `lint-java`, `lint-python`, `lint` et `verify`.
+La commande `verify` devra exécuter successivement les tests et les contrôles
+qualité. Si une commande échoue, le script s'arrête et retourne le code `1`.
+
+`verify` reproduit les portes locales **tests et qualité**. Elle ne construit
+pas les images, ne lance pas Gitleaks, ne publie pas les rapports et ne vérifie
+pas la protection de branche. Ces responsabilités restent dans les workflows
+GitHub Actions.
+
+Lisez les workflows existants. Pour chaque job, notez le risque couvert, les
+entrées, la sortie et le coût approximatif.
+
+## 1. Observer un échec — 25 min
+
+Modifiez temporairement une assertion dans un test Python ou Java, puis ouvrez
+une pull request en brouillon.
+
+Questions à documenter dans la PR :
+
+1. Quel job échoue en premier ?
+2. Quelle ligne permet d'identifier la cause ?
+3. Un rapport structuré reste-t-il disponible ?
+4. Combien de temps faut-il pour obtenir le retour ?
+
+Rétablissez ensuite le test. Conservez cette expérience dans l'historique par
+deux petits commits explicites.
+
+## 2. Ajouter les portes qualité — 50 min
+
+### Java
+
+Ajoutez le plugin Checkstyle au build Gradle et une configuration minimale
+couvrant au moins : imports inutilisés, accolades obligatoires, instructions
+vides et longueur de ligne.
+
+```bash
+cd apps/car-rental-service
+./gradlew checkstyleMain checkstyleTest
+```
+
+### Python
+
+Ajoutez Ruff aux dépendances de développement. Activez au minimum les familles
+`E`, `F` et `I`, puis vérifiez le formatage.
+
+```bash
+cd apps/pricing-service
+python -m ruff check app tests
+python -m ruff format --check app tests
+```
+
+Ne corrigez pas un échec en désactivant globalement la règle : expliquez toute
+exception locale.
+
+## 3. Redessiner le graphe CI — 55 min
+
+Pour chaque service, créez trois jobs :
+
+```text
+tests ────┐
+          ├──> image Docker
+qualité ──┘
+```
+
+Contraintes :
+
+- timeout explicite sur chaque job ;
+- permissions minimales au niveau du workflow ;
+- dépendance `needs` avant la construction ;
+- cache des dépendances ;
+- annulation d'une exécution devenue obsolète ;
+- aucune publication d'image depuis une pull request.
+
+Assurez-vous que les contrôles requis existent sur toutes les PR. Expliquez
+pourquoi un filtre `paths` placé sur `pull_request` peut être problématique.
+
+## 4. Produire des preuves — 35 min
+
+Exportez les résultats JUnit/Pytest et les rapports Checkstyle avec
+`actions/upload-artifact`. Les rapports doivent être téléversés avec
+`if: always()` et une durée de rétention limitée.
+
+Provoquez un nouvel échec et vérifiez concrètement qu'un rapport est disponible
+dans l'onglet de l'exécution.
+
+## 5. Détecter les secrets — 30 min
+
+Ajoutez un workflow dédié utilisant Gitleaks sur l'historique complet.
+
+N'introduisez **aucun vrai secret**. Utilisez uniquement la valeur factice
+fournie par l'enseignant dans une branche jetable, observez le résultat, puis
+supprimez cette branche selon ses consignes.
+
+Dans votre compte rendu, distinguez :
+
+- supprimer la ligne fautive ;
+- révoquer un secret exposé ;
+- réécrire l'historique Git.
+
+## 6. Reproduire en local — 20 min
+
+Étendez `scripts/course.py` avec les commandes `lint`, `lint-java`,
+`lint-python` et `verify`.
+
+```bash
+python scripts/course.py verify
+```
+
+La commande doit échouer au premier contrôle non satisfait et retourner un code
+différent de zéro.
+
+## 7. Protéger `main` — 20 min
+
+Après validation par l'enseignant, rendez obligatoires :
+
+- `Java tests`, `Java quality`, `Java Docker image` ;
+- `Python tests`, `Python quality`, `Python Docker image` ;
+- `Secret detection`.
+
+Vérifiez qu'une PR rouge ne peut pas être intégrée et qu'une PR verte le peut.
+
+## Critères d'acceptation
+
+| Critère | Points |
+|---|---:|
+| Tests et qualité séparés, reproductibles localement | 5 |
+| Graphe de dépendances et publication sûre des images | 4 |
+| Rapports exploitables en cas d'échec | 3 |
+| Détection de secrets correctement bornée | 3 |
+| Permissions, timeouts, cache et concurrence | 3 |
+| PR claire et commits pédagogiques | 2 |
+
+La validation automatique locale est :
+
+```bash
+python scripts/course.py verify
+```
+
+La validation distante exige les sept contrôles verts et les artefacts attendus.
+
+## Pour aller plus loin
+
+1. Mesurez l'effet réel des caches sur deux exécutions successives.
+2. Ajoutez une matrice de versions, puis évaluez son coût et son utilité.
+3. Proposez une stratégie pour ne reconstruire qu'un service sans rendre les
+   contrôles requis instables.
+4. Identifiez les références d'actions qui devraient être épinglées par SHA au
+   checkpoint suivant.

@@ -1,159 +1,215 @@
-name: CI/CD - car-rental-service
+name: CI - car-rental-service
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
     paths:
       - 'apps/car-rental-service/**'
       - '.github/workflows/ci-car-rental.yml'
   pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'apps/car-rental-service/**'
-      - '.github/workflows/ci-car-rental.yml'
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: car-rental-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/car-rental-service
 
 jobs:
-  # ============================================
-  # Phase 1: Tests & Code Quality
-  # ============================================
   test:
-    name: Unit & Integration Tests
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    
+    name: Java tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-      
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '17'
-          distribution: 'corretto'
+          distribution: corretto
           cache: gradle
-      
+          cache-dependency-path: |
+            apps/car-rental-service/*.gradle
+            apps/car-rental-service/gradle/wrapper/gradle-wrapper.properties
+
       - name: Run tests
         working-directory: apps/car-rental-service
-        run: ./gradlew clean test --info
-      
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: apps/car-rental-service/build/test-results/
+        run: ./gradlew clean test --no-daemon
 
-  # Code quality checks
-  code-quality:
-    name: Code Quality & Security Scans
-    runs-on: ubuntu-latest
-    
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-test-reports
+          path: |
+            apps/car-rental-service/build/test-results/test/
+            apps/car-rental-service/build/reports/tests/test/
+          if-no-files-found: error
+          retention-days: 7
+
+  quality:
+    name: Java quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '17'
-          distribution: 'corretto'
+          distribution: corretto
           cache: gradle
-      
-      - name: Gradle build
-        working-directory: apps/car-rental-service
-        run: ./gradlew build -x test
-      
-      - name: Check for secrets
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          cache-dependency-path: |
+            apps/car-rental-service/*.gradle
+            apps/car-rental-service/gradle/wrapper/gradle-wrapper.properties
 
-  # ============================================
-  # Phase 2: Build & Push Docker Image
-  # ============================================
-  build-and-push:
-    name: Build & Push Docker Image
-    runs-on: ubuntu-latest
-    needs: [test, code-quality]
-    
+      - name: Run Checkstyle
+        working-directory: apps/car-rental-service
+        run: ./gradlew checkstyleMain checkstyleTest --no-daemon
+
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-quality-reports
+          path: apps/car-rental-service/build/reports/checkstyle/
+          if-no-files-found: error
+          retention-days: 7
+
+  docker:
+    name: Java Docker image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: [test, quality]
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     permissions:
       contents: read
       packages: write
-      security-events: write
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-      
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Extract metadata
+
+      - name: Extract image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=pr
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
-      
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+
+      - name: Build and optionally push image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: apps/car-rental-service
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-      
-      - name: Scan Docker image with Trivy
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-      
-      - name: Upload Trivy results to GitHub Security
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy-scan
+          cache-from: type=gha,scope=car-rental-service
+          cache-to: type=gha,scope=car-rental-service,mode=max
 
-  # Summary job
-  pipeline-status:
-    name: Pipeline Status
-    runs-on: ubuntu-latest
-    needs: [test, code-quality, build-and-push]
-    if: always()
-    
+  supply-chain:
+    name: Java supply chain
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: docker
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+      security-events: write
+
     steps:
-      - name: Check pipeline status
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+      - name: Sign image by digest
+        env:
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.docker.outputs.digest }}
+        run: cosign sign --yes "$IMAGE_REF"
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.docker.outputs.digest }}
+          format: spdx-json
+          output-file: java-sbom.spdx.json
+          artifact-name: java-sbom.spdx.json
+          upload-artifact-retention: 7
+
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ needs.docker.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ needs.docker.outputs.digest }}
+          sbom-path: java-sbom.spdx.json
+          push-to-registry: true
+
+      - name: Verify signature and attestations
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.docker.outputs.digest }}
+          CERTIFICATE_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/ci-car-rental.yml@refs/heads/main
         run: |
-          if [ "${{ needs.test.result }}" = "failure" ] || \
-             [ "${{ needs.code-quality.result }}" = "failure" ] || \
-             [ "${{ needs.build-and-push.result }}" = "failure" ]; then
-            echo "❌ Pipeline failed"
-            exit 1
-          fi
-          echo "✅ Pipeline succeeded"
+          cosign verify \
+            --certificate-identity "$CERTIFICATE_IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$IMAGE_REF"
+          gh attestation verify "oci://$IMAGE_REF" --repo "$GITHUB_REPOSITORY"
+
+      - name: Scan published digest with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.docker.outputs.digest }}
+          format: sarif
+          output: trivy-java.sarif
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-java.sarif
+          category: trivy-car-rental
